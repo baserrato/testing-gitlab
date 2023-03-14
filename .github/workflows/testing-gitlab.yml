@@ -5,6 +5,11 @@ on:
 concurrency:
   group: "${{ github.ref }}"
   cancel-in-progress: true
+env:
+  GITLAB_ENVIRONMENT_SECRET: "${{ secrets.GITLAB_ENVIRONMENT_SECRET }}"
+  TEST_ALL_SECRET: "${{ secrets.TEST_ALL_SECRET }}"
+  TEST_ENV_ALL: HELLO ALL ENVIRONMENT!!!!!!
+  TEST_ENV_PROD: HELLO PRODUCTION!!!!!
 jobs:
   build-job:
     runs-on: ubuntu-latest
@@ -16,9 +21,19 @@ jobs:
         lfs: true
     - run: echo "Compiling the code..."
     - run: echo "Compile complete."
-
+  all-echo-env:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v3.3.0
+      with:
+        fetch-depth: 20
+        lfs: true
+    - run: echo $TEST_ENV_ALL
   unit-test-job:
-    needs: build-job
+    needs:
+    - build-job
+    - all-echo-env
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -29,9 +44,10 @@ jobs:
     - run: echo "Running unit tests... This will take about 60 seconds."
     - run: sleep 60
     - run: echo "Code coverage is 90%"
-
   lint-test-job:
-    needs: build-job
+    needs:
+    - build-job
+    - all-echo-env
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -42,11 +58,23 @@ jobs:
     - run: echo "Linting code... This will take about 10 seconds."
     - run: sleep 10
     - run: echo "No lint issues found."
-    
+  all-echo-secret:
+    needs:
+    - build-job
+    - all-echo-env
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v3.3.0
+      with:
+        fetch-depth: 20
+        lfs: true
+    - run: echo $TEST_ALL_SECRET
   deploy-job:
     needs:
     - unit-test-job
     - lint-test-job
+    - all-echo-secret
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 60
@@ -57,3 +85,31 @@ jobs:
         lfs: true
     - run: echo "Deploying application..."
     - run: echo "Application successfully deployed."
+  prod-echo-env:
+    needs:
+    - unit-test-job
+    - lint-test-job
+    - all-echo-secret
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v3.3.0
+      with:
+        fetch-depth: 20
+        lfs: true
+    - run: echo $TEST_ENV_PROD
+  prod-echo-secret:
+    needs:
+    - unit-test-job
+    - lint-test-job
+    - all-echo-secret
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v3.3.0
+      with:
+        fetch-depth: 20
+        lfs: true
+    - run: echo $GITLAB_ENVIRONMENT_SECRET
